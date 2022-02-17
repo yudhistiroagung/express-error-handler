@@ -1,4 +1,6 @@
 import express, { Request, Response, NextFunction } from 'express';
+import Joi from 'joi';
+import asyncHandler from 'express-async-handler';
 
 const PORT = 3000;
 const app = express();
@@ -21,14 +23,14 @@ class UnauthorizedError extends HTTPError {
 }
 
 class BadRequestError extends HTTPError {
-    constructor(message: string = '') {
+    constructor(message: string = 'Bad Request') {
         super(400, message);
     }
 }
 
 class UknownError extends HTTPError {
-    constructor(message: string = '') {
-        super(500, 'Unknown Error :(');
+    constructor(message: string = 'Unknown Error :(') {
+        super(500, message);
     }
 }
 
@@ -38,24 +40,46 @@ app.get('/', (_: Request, res: Response) => {
     });
 });
 
-app.post('/error', (req: Request, res: Response) => {
-    const { status } = req.body;
-
-    let toBeThrownError: HTTPError = new UknownError();
-
-    switch(status) {
-        case 401: 
-            toBeThrownError = new UnauthorizedError();
-            break;
-        case 400:
-            toBeThrownError = new BadRequestError();
-            break;
-        default:
-            break;
-    }
-
-    throw toBeThrownError;
+// Validation
+const payloadSchema = Joi.object({
+    status: Joi
+        .number()
+        .required()
+        .description('Status to be return to client')
 });
+
+// validation middleware
+const validate = (schema: Joi.Schema) => asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+    const payload = req.body;
+    try {
+        const res = await schema.validateAsync(payload);
+        next();
+    } catch (e: any) {
+        throw new BadRequestError(e?.details[0].message);
+    }
+});
+
+app.post(
+    '/error',
+    validate(payloadSchema),
+    (req: Request, res: Response) => {
+        const { status } = req.body;
+
+        let toBeThrownError: HTTPError = new UknownError();
+
+        switch (status) {
+            case 401:
+                toBeThrownError = new UnauthorizedError();
+                break;
+            case 400:
+                toBeThrownError = new BadRequestError();
+                break;
+            default:
+                break;
+        }
+
+        throw toBeThrownError;
+    });
 
 /**
  * Middleware that handle custom HTTP Error
