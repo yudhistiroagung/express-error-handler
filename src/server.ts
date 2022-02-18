@@ -1,6 +1,13 @@
 import express, { Request, Response, NextFunction } from 'express';
-import Joi from 'joi';
-import asyncHandler from 'express-async-handler';
+
+import { payloadSchema } from './validations';
+import { validateBody } from './middlewares';
+import {
+    HTTPError,
+    BadRequestError,
+    UnauthorizedError,
+    UknownError
+} from './exceptions';
 
 const PORT = 3000;
 const app = express();
@@ -9,59 +16,16 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// HTTP error base class
-class HTTPError extends Error {
-    constructor(public status: number, public message: string) {
-        super(message);
-    }
-}
-
-class UnauthorizedError extends HTTPError {
-    constructor() {
-        super(401, 'Unauthorized');
-    }
-}
-
-class BadRequestError extends HTTPError {
-    constructor(message: string = 'Bad Request') {
-        super(400, message);
-    }
-}
-
-class UknownError extends HTTPError {
-    constructor(message: string = 'Unknown Error :(') {
-        super(500, message);
-    }
-}
-
 app.get('/', (_: Request, res: Response) => {
     res.json({
         message: 'Welcome to API'
     });
 });
 
-// Validation
-const payloadSchema = Joi.object({
-    status: Joi
-        .number()
-        .required()
-        .description('Status to be return to client')
-});
-
-// validation middleware
-const validate = (schema: Joi.Schema) => asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-    const payload = req.body;
-    try {
-        const res = await schema.validateAsync(payload);
-        next();
-    } catch (e: any) {
-        throw new BadRequestError(e?.details[0].message);
-    }
-});
 
 app.post(
     '/error',
-    validate(payloadSchema),
+    validateBody(payloadSchema),
     (req: Request, res: Response) => {
         const { status } = req.body;
 
