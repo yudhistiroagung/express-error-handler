@@ -22,7 +22,6 @@ app.get('/', (_: Request, res: Response) => {
     });
 });
 
-
 app.post(
     '/error',
     validateBody(payloadSchema),
